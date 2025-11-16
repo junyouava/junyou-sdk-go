@@ -105,7 +105,7 @@ func (a *AuthService) GenerateAuthHeader(method, apiPath string) (http.Header, e
 	return header, nil
 }
 
-// GenerateSignatureWithAuthCMT 生成签名并调用 AuthCMT，合并返回签名信息和数据
+// GenerateSignatureWithAuthCMT 生成签名并调用 AuthCMT，合并返回签名信息和OpenAuth
 func (a *AuthService) GenerateSignatureWithAuthCMT(openIdToken OpenIdToken) (*SignatureWithData, error) {
 	// 生成签名
 	signature, err := a.GenerateSignature(http.MethodPost, APIPathAuthCMT)
