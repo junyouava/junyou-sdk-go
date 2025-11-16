@@ -18,6 +18,15 @@ type Signature struct {
 	Timestamp string `json:"timestamp"`
 }
 
+// SignatureWithData 签名信息与数据合并结构
+type SignatureWithData struct {
+	AccessId  string `json:"access_id"`
+	Signature string `json:"signature"`
+	Nonce     string `json:"nonce"`
+	Timestamp string `json:"timestamp"`
+	OpenAuth  string `json:"open_auth"`
+}
+
 // AuthService 认证服务
 type AuthService struct {
 	client *Client
@@ -94,4 +103,28 @@ func (a *AuthService) GenerateAuthHeader(method, apiPath string) (http.Header, e
 	}
 
 	return header, nil
+}
+
+// GenerateSignatureWithAuthCMT 生成签名并调用 AuthCMT，合并返回签名信息和数据
+func (a *AuthService) GenerateSignatureWithAuthCMT(openIdToken OpenIdToken) (*SignatureWithData, error) {
+	// 生成签名
+	signature, err := a.GenerateSignature(http.MethodPost, APIPathAuthCMT)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate signature: %w", err)
+	}
+
+	// 调用 AuthCMT
+	result, err := a.client.API().AuthCMT(openIdToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call AuthCMT: %w", err)
+	}
+
+	// 合并签名信息和数据
+	return &SignatureWithData{
+		AccessId:  signature.AccessId,
+		Signature: signature.Signature,
+		Nonce:     signature.Nonce,
+		Timestamp: signature.Timestamp,
+		OpenAuth:  result.Data,
+	}, nil
 }
