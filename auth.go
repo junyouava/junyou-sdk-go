@@ -28,6 +28,12 @@ type OpenIdToken struct {
 	OpenId string `json:"open_id"`
 }
 
+// EnterpriseJKSURLRequest 企业 JKS 地址请求
+type EnterpriseJKSURLRequest struct {
+	// JKSUrl JKS 文件访问地址
+	JKSUrl string `json:"jks_url"`
+}
+
 // Register 注册
 func (s *APIService) Register(registerInfo *RegisterInfo) (*Result[string], error) {
 	return DoRequest[string](s.client,
@@ -61,5 +67,14 @@ func (s *APIService) AuthCMT(openIdToken OpenIdToken) (*Result[string], error) {
 		http.MethodPost,
 		APIPathAuthCMT,
 		openIdToken,
+	)
+}
+
+// SetEnterpriseJKSURL 设置企业 JKS 地址
+func (s *APIService) SetEnterpriseJKSURL(req EnterpriseJKSURLRequest) (*Result[map[string]any], error) {
+	return DoRequest[map[string]any](s.client,
+		http.MethodPost,
+		APIPathEnterpriseJKSURL,
+		req,
 	)
 }

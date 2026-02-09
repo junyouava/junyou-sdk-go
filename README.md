@@ -242,6 +242,8 @@ API 服务，提供所有业务 API 调用。
 - `AuthSetPWD(openIdToken OpenIdToken) (*Result[string], error)` - 设置密码认证
 - `AuthCMT(openIdToken OpenIdToken) (*Result[string], error)` - 验证认证
 - `ConfirmEWTReleaseByPartner(ewtBizNoInfo EWTBizNoInfo) (*Result[string], error)` - 确认权证释放
+ - `CommitEWTReleaseByPartner() (*Result[map[string]any], error)` - 提交权证释放结果
+ - `SetEnterpriseJKSURL(req EnterpriseJKSURLRequest) (*Result[map[string]any], error)` - 设置企业 JKS 地址
 
 ## 配置选项
 

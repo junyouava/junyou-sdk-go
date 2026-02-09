@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/junyouava/junyou-sdk-go/internal"
@@ -63,8 +64,17 @@ func (a *AuthService) GenerateSignature(method, apiPath string) (*Signature, err
 	// 生成时间戳（当前时间加 3 分钟）
 	timestamp := strconv.FormatInt(time.Now().Add(3*time.Minute).Unix(), 10)
 
+	// 规范化 HTTP 方法为大写，避免调用方传小写导致验签失败
+	methodUpper := strings.ToUpper(method)
+
+	// 签名只使用纯 path，不包含 query（与服务端 OpenAuthMiddleware 保持一致）
+	pathForSign := apiPath
+	if idx := strings.Index(pathForSign, "?"); idx != -1 {
+		pathForSign = pathForSign[:idx]
+	}
+
 	// 构建签名字符串（包含 accessId 作为第一个字段）
-	signString := fmt.Sprintf("%s\n%s\n%s\n%s\n%s", config.AccessId, method, apiPath, nonce, timestamp)
+	signString := fmt.Sprintf("%s\n%s\n%s\n%s\n%s", config.AccessId, methodUpper, pathForSign, nonce, timestamp)
 
 	// 解码 AccessKey (Base64)
 	accessKeyBytes, err := base64.StdEncoding.DecodeString(config.AccessKey)
