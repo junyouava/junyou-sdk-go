@@ -44,21 +44,12 @@ func (s *APIService) ConfirmEWTReleaseByPartner(ewtBizNoInfo EWTBizNoInfo) (*Res
 
 // PreCommitEWTReleaseByPartner 预提交权证释放（与 CommitEWTReleaseByPartner 配套）
 // 对应接口: POST /v1/ewt/pre_ewt_rbp_open
-// 注意：该接口需要“用户身份”，请使用 PreCommitEWTReleaseByPartnerWithOpenAuth 并传入接收释放的用户的 Open Token（X-Open-Auth），否则服务端可能返回「校验失败：缺少用户身份」。
-func (s *APIService) PreCommitEWTReleaseByPartner(req PreEWTReleaseByPartnerRequest) (*Result[map[string]any], error) {
-	return DoRequest[map[string]any](s.client,
-		http.MethodPost,
-		APIPathEWTPreOpenReleaseByPartner,
-		req,
-		nil,
-	)
-}
-
-// PreCommitEWTReleaseByPartnerWithOpenAuth 预提交权证释放（带用户身份）
-// 在请求头中携带 X-Open-Auth（openAuth），用于标识“接收权证释放”的用户；与 X-Access-ID 等应用鉴权一起使用。
-// openAuth 可通过 /auth/login 等开放接口为该用户换取得到。
-func (s *APIService) PreCommitEWTReleaseByPartnerWithOpenAuth(req PreEWTReleaseByPartnerRequest, openAuth string) (*Result[map[string]any], error) {
-	extra := map[string]string{HeaderOpenAuth: openAuth}
+// openAuth 为接收权证释放的用户的 Open Token（X-Open-Auth）；传空字符串则不带该头。该接口需要用户身份，未带时服务端可能返回「校验失败：缺少用户身份」。openAuth 可通过 /auth/login 等开放接口换取。
+func (s *APIService) PreCommitEWTReleaseByPartner(req PreEWTReleaseByPartnerRequest, openAuth string) (*Result[map[string]any], error) {
+	var extra map[string]string
+	if openAuth != "" {
+		extra = map[string]string{HeaderOpenAuth: openAuth}
+	}
 	return DoRequest[map[string]any](s.client,
 		http.MethodPost,
 		APIPathEWTPreOpenReleaseByPartner,

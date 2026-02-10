@@ -10,8 +10,9 @@ import (
 func main() {
 	// 初始化客户端
 	config := junyousdk.DefaultConfig().
-		WithAccessId("your-access-id").
-		WithAccessKey("your-access-key")
+		WithAccessId("084f95e5e2bf3f79d5f2fd069f4f5e7c").
+		WithAccessKey("5L/1P8XJ2dIWIMGEHkrZ6gE0HGKvyd/4MKcyQ04oEfE=").
+		WithAddress("https://open-api.test.junyouchain.com")
 
 	client, err := junyousdk.NewClient(config)
 	if err != nil {
@@ -108,20 +109,35 @@ func ewtExample(client *junyousdk.Client) {
 }
 
 // ewtPreReleaseExample 预提交权证释放示例
-// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_commit
+// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open
+// 预提交需要“用户身份”：先为该用户换取 Open Token，再在请求头中携带 X-Open-Auth，否则服务端会返回「校验失败：缺少用户身份」。
 func ewtPreReleaseExample(client *junyousdk.Client) {
 	fmt.Println("\n=== 预提交权证释放示例 ===")
 
+	// 1. 为“接收权证释放”的用户换取 Open Token（示例用 openId，实际由业务侧提供）
+	openId := "04a7bb30587780d34fd7916664b13651ee4a05dc8079c34a69e9cea2cc59faf7"
+	loginResult, err := client.API().AuthLogin(junyousdk.OpenIdToken{OpenId: openId})
+	if err != nil {
+		log.Printf("获取 Open Token 失败: %v\n", err)
+		return
+	}
+	if !loginResult.Success {
+		log.Printf("获取 Open Token 失败: %s\n", loginResult.Message)
+		return
+	}
+	openAuth := loginResult.Data
+
+	// 2. 带 X-Open-Auth 调用预提交
 	preReq := junyousdk.PreEWTReleaseByPartnerRequest{
 		Amount:       "100",
 		Ratio:        "1",
-		Level1OpenId: "level1-open-id",
+		Level1OpenId: "04a7bb30587780d34fd7916664b13651ee4a05dc8079c34a69e9cea2cc59faf7",
 		Level1Ratio:  "0.7",
-		Level2OpenId: "level2-open-id",
+		Level2OpenId: "d92067abdbb2e2b68a4ad31597e45c1944389c0b26324233a4498a9066037369",
 		Level2Ratio:  "0.3",
 	}
 
-	preResult, err := client.API().PreCommitEWTReleaseByPartner(preReq)
+	preResult, err := client.API().PreCommitEWTReleaseByPartner(preReq, openAuth)
 	if err != nil {
 		log.Printf("预提交权证释放失败: %v\n", err)
 		return
