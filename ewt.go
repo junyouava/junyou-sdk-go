@@ -46,7 +46,7 @@ func (s *APIService) ConfirmEWTReleaseByPartner(ewtBizNoInfo EWTBizNoInfo) (*Res
 func (s *APIService) PreCommitEWTReleaseByPartner(req PreEWTReleaseByPartnerRequest) (*Result[map[string]any], error) {
 	return DoRequest[map[string]any](s.client,
 		http.MethodPost,
-		APIPathEWTPreCommitReleaseByPartner,
+		APIPathEWTPreOpenReleaseByPartner,
 		req,
 	)
 }
