@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -115,15 +114,6 @@ func DoRequest[T any](c *Client, method, apiPath string, body any) (*Result[T], 
 	// 设置 Header
 	httpReq.Header = header.Clone()
 
-	// 请求日志
-	reqBodyLog := string(bodyBytes)
-	if reqBodyLog == "" {
-		reqBodyLog = "(empty)"
-	}
-	log.Printf("[SDK Request] %s %s", method, reqURL)
-	log.Printf("[SDK Request] Headers: %v", httpReq.Header)
-	log.Printf("[SDK Request] Body: %s", reqBodyLog)
-
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -136,14 +126,6 @@ func DoRequest[T any](c *Client, method, apiPath string, body any) (*Result[T], 
 	if err != nil {
 		return NewSysErrorResult[T]("failed to read response"), fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	// 响应日志
-	respBodyLog := string(data)
-	if respBodyLog == "" {
-		respBodyLog = "(empty)"
-	}
-	log.Printf("[SDK Response] %s %s | Status: %d", method, reqURL, resp.StatusCode)
-	log.Printf("[SDK Response] Body: %s", respBodyLog)
 
 	// 检查 HTTP 状态码（在解析 JSON 之前）
 	if resp.StatusCode != http.StatusOK {
