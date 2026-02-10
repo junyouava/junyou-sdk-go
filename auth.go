@@ -40,6 +40,7 @@ func (s *APIService) Register(registerInfo *RegisterInfo) (*Result[string], erro
 		http.MethodPost,
 		APIPathRegister,
 		registerInfo,
+		nil,
 	)
 }
 
@@ -49,6 +50,7 @@ func (s *APIService) AuthLogin(openIdToken OpenIdToken) (*Result[string], error)
 		http.MethodPost,
 		APIPathAuthLogin,
 		openIdToken,
+		nil,
 	)
 }
 
@@ -58,6 +60,7 @@ func (s *APIService) AuthSetPWD(openIdToken OpenIdToken) (*Result[string], error
 		http.MethodPost,
 		APIPathAuthSetPWD,
 		openIdToken,
+		nil,
 	)
 }
 
@@ -67,6 +70,7 @@ func (s *APIService) AuthCMT(openIdToken OpenIdToken) (*Result[string], error) {
 		http.MethodPost,
 		APIPathAuthCMT,
 		openIdToken,
+		nil,
 	)
 }
 
@@ -76,5 +80,6 @@ func (s *APIService) SetEnterpriseJKSURL(req EnterpriseJKSURLRequest) (*Result[m
 		http.MethodPost,
 		APIPathEnterpriseJKSURL,
 		req,
+		nil,
 	)
 }

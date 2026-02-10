@@ -35,4 +35,6 @@ const (
 	HeaderNonce       = "X-Signature-Nonce"
 	HeaderTimestamp   = "X-Timestamp"
 	HeaderContentType = "Content-Type"
+	// HeaderOpenAuth 用户 Open Token，用于标识“当前用户”（如预提交权证释放的接收方）。未携带时服务端 userId 为 0，可能返回校验失败。
+	HeaderOpenAuth = "X-Open-Auth"
 )

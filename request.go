@@ -76,8 +76,8 @@ func buildErrorResult[T any](apiResponse *Result[T], statusCode int, apiPath str
 	return result, errors.New(errorMsg)
 }
 
-// DoRequest 执行请求
-func DoRequest[T any](c *Client, method, apiPath string, body any) (*Result[T], error) {
+// DoRequest 执行请求。extraHeaders 可选，用于追加请求头（如 X-Open-Auth）。
+func DoRequest[T any](c *Client, method, apiPath string, body any, extraHeaders map[string]string) (*Result[T], error) {
 	// 生成认证 Header
 	header, err := c.auth.GenerateAuthHeader(method, apiPath)
 	if err != nil {
@@ -113,6 +113,11 @@ func DoRequest[T any](c *Client, method, apiPath string, body any) (*Result[T], 
 
 	// 设置 Header
 	httpReq.Header = header.Clone()
+	for k, v := range extraHeaders {
+		if v != "" {
+			httpReq.Header.Set(k, v)
+		}
+	}
 
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)

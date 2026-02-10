@@ -13,7 +13,7 @@ type EWTBizNoInfo struct {
 }
 
 // PreEWTReleaseByPartnerRequest 预提交权证释放请求体
-// 对应接口: POST /v1/ewt/pre_ewt_rbp_commit
+// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open
 type PreEWTReleaseByPartnerRequest struct {
 	Amount       string `json:"amount"`         // 权证数量
 	Ratio        string `json:"ratio"`          // 总释放比例
@@ -38,16 +38,32 @@ func (s *APIService) ConfirmEWTReleaseByPartner(ewtBizNoInfo EWTBizNoInfo) (*Res
 		http.MethodPost,
 		APIPathEWTConfirmReleaseByPartner,
 		ewtBizNoInfo,
+		nil,
 	)
 }
 
 // PreCommitEWTReleaseByPartner 预提交权证释放（与 CommitEWTReleaseByPartner 配套）
-// 对应接口: POST /v1/ewt/pre_ewt_rbp_commit
+// 对应接口: POST /v1/ewt/pre_ewt_rbp_open
+// 注意：该接口需要“用户身份”，请使用 PreCommitEWTReleaseByPartnerWithOpenAuth 并传入接收释放的用户的 Open Token（X-Open-Auth），否则服务端可能返回「校验失败：缺少用户身份」。
 func (s *APIService) PreCommitEWTReleaseByPartner(req PreEWTReleaseByPartnerRequest) (*Result[map[string]any], error) {
 	return DoRequest[map[string]any](s.client,
 		http.MethodPost,
 		APIPathEWTPreOpenReleaseByPartner,
 		req,
+		nil,
+	)
+}
+
+// PreCommitEWTReleaseByPartnerWithOpenAuth 预提交权证释放（带用户身份）
+// 在请求头中携带 X-Open-Auth（openAuth），用于标识“接收权证释放”的用户；与 X-Access-ID 等应用鉴权一起使用。
+// openAuth 可通过 /auth/login 等开放接口为该用户换取得到。
+func (s *APIService) PreCommitEWTReleaseByPartnerWithOpenAuth(req PreEWTReleaseByPartnerRequest, openAuth string) (*Result[map[string]any], error) {
+	extra := map[string]string{HeaderOpenAuth: openAuth}
+	return DoRequest[map[string]any](s.client,
+		http.MethodPost,
+		APIPathEWTPreOpenReleaseByPartner,
+		req,
+		extra,
 	)
 }
 
@@ -58,6 +74,7 @@ func (s *APIService) CommitEWTReleaseByPartner(req CommitEWTReleaseByPartnerRequ
 		http.MethodPost,
 		APIPathEWTCommitReleaseByPartner,
 		req,
+		nil,
 	)
 }
 
@@ -80,6 +97,7 @@ func (s *APIService) GetEWTBalance(page, pageSize int) (*Result[map[string]any],
 	return DoRequest[map[string]any](s.client,
 		http.MethodGet,
 		apiPath,
+		nil,
 		nil,
 	)
 }
@@ -119,6 +137,7 @@ func (s *APIService) GetEWTTransactionDetails(
 	return DoRequest[map[string]any](s.client,
 		http.MethodGet,
 		apiPath,
+		nil,
 		nil,
 	)
 }
