@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // EWTBizNoInfo EWT 业务编号信息
@@ -24,7 +25,7 @@ type PreEWTReleaseByPartnerRequest struct {
 }
 
 // CommitEWTReleaseByPartnerRequest 提交权证释放（伙伴）请求体
-// 对应接口: POST /v1/ewt/commit_ewt_rbp
+// 对应接口: POST /api/open/v1/ewt/commit_ewt_rbp
 type CommitEWTReleaseByPartnerRequest struct {
 	BizNo     string `json:"biz_no"`     // 业务单号，例如 EWT20250101000001
 	Message   string `json:"message"`    // 原始业务消息 JSON 字符串
@@ -43,23 +44,19 @@ func (s *APIService) ConfirmEWTReleaseByPartner(ewtBizNoInfo EWTBizNoInfo) (*Res
 }
 
 // PreCommitEWTReleaseByPartner 预提交权证释放（与 CommitEWTReleaseByPartner 配套）
-// 对应接口: POST /v1/ewt/pre_ewt_rbp_open
-// openAuth 为接收权证释放的用户的 Open Token（X-Open-Auth）；传空字符串则不带该头。该接口需要用户身份，未带时服务端可能返回「校验失败：缺少用户身份」。openAuth 可通过 /auth/login 等开放接口换取。
+// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open
+// openAuth 为接收权证释放的用户的 Open Token（X-Open-Auth）；空或仅空白则不带该头。该接口需要用户身份，未带时服务端可能返回「校验失败：缺少用户身份」。openAuth 可通过 /api/open/v1/auth/login 等开放接口换取。
 func (s *APIService) PreCommitEWTReleaseByPartner(req PreEWTReleaseByPartnerRequest, openAuth string) (*Result[map[string]any], error) {
-	var extra map[string]string
-	if openAuth != "" {
-		extra = map[string]string{HeaderOpenAuth: openAuth}
-	}
 	return DoRequest[map[string]any](s.client,
 		http.MethodPost,
 		APIPathEWTPreOpenReleaseByPartner,
 		req,
-		extra,
+		openAuthExtraHeaders(openAuth),
 	)
 }
 
 // CommitEWTReleaseByPartner 提交权证释放（伙伴）
-// 对应接口: POST /v1/ewt/commit_ewt_rbp
+// 对应接口: POST /api/open/v1/ewt/commit_ewt_rbp
 func (s *APIService) CommitEWTReleaseByPartner(req CommitEWTReleaseByPartnerRequest) (*Result[map[string]any], error) {
 	return DoRequest[map[string]any](s.client,
 		http.MethodPost,
@@ -70,9 +67,9 @@ func (s *APIService) CommitEWTReleaseByPartner(req CommitEWTReleaseByPartnerRequ
 }
 
 // GetEWTBalance 权证余额查询
-// 对应接口: GET /v1/ewt/balance?page&page_size
-// 目前默认按企业维度查询（不自动带 X-Open-Auth）。
-func (s *APIService) GetEWTBalance(page, pageSize int) (*Result[map[string]any], error) {
+// 对应接口: GET /api/open/v1/ewt/balance?page&page_size
+// openAuth 为空或仅空白时不带 X-Open-Auth，按企业维度查询；否则为 AuthLogin 返回的 Open Token，按该用户维度查询。
+func (s *APIService) GetEWTBalance(page, pageSize int, openAuth string) (*Result[map[string]any], error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -89,17 +86,18 @@ func (s *APIService) GetEWTBalance(page, pageSize int) (*Result[map[string]any],
 		http.MethodGet,
 		apiPath,
 		nil,
-		nil,
+		openAuthExtraHeaders(openAuth),
 	)
 }
 
 // GetEWTTransactionDetails 权证交易明细查询
-// 对应接口: GET /v1/ewt/transaction_details?page&page_size&transaction_type&biz_type&year&month
-// 目前默认按企业维度查询（不自动带 X-Open-Auth）。
+// 对应接口: GET /api/open/v1/ewt/transaction_details?...
+// openAuth 为空或仅空白时不带 X-Open-Auth，按企业维度查询；否则按该用户维度查询。
 func (s *APIService) GetEWTTransactionDetails(
 	page, pageSize int,
 	transactionType, bizType string,
 	year, month int,
+	openAuth string,
 ) (*Result[map[string]any], error) {
 	if page <= 0 {
 		page = 1
@@ -129,6 +127,15 @@ func (s *APIService) GetEWTTransactionDetails(
 		http.MethodGet,
 		apiPath,
 		nil,
-		nil,
+		openAuthExtraHeaders(openAuth),
 	)
+}
+
+// openAuthExtraHeaders 将 Open Token 转为 DoRequest 的 extraHeaders；空或仅空白返回 nil。
+func openAuthExtraHeaders(openAuth string) map[string]string {
+	s := strings.TrimSpace(openAuth)
+	if s == "" {
+		return nil
+	}
+	return map[string]string{HeaderOpenAuth: s}
 }

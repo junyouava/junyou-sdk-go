@@ -183,7 +183,7 @@ func ewtCommitReleaseExample(client *junyousdk.Client) {
 func ewtBalanceExample(client *junyousdk.Client) {
 	fmt.Println("\n=== 权证余额查询示例 ===")
 
-	result, err := client.API().GetEWTBalance(1, 20)
+	result, err := client.API().GetEWTBalance(1, 20, "")
 	if err != nil {
 		log.Printf("查询权证余额失败: %v\n", err)
 		return
@@ -212,6 +212,7 @@ func ewtTransactionDetailsExample(client *junyousdk.Client) {
 		page, pageSize,
 		transactionType, bizType,
 		year, month,
+		"",
 	)
 	if err != nil {
 		log.Printf("查询权证交易明细失败: %v\n", err)
