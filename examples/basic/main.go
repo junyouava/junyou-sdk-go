@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -10,9 +11,9 @@ import (
 func main() {
 	// 初始化客户端
 	config := junyousdk.DefaultConfig().
-		WithAccessId("084f95e5e2bf3f79d5f2fd069f4f5e7c").
-		WithAccessKey("5L/1P8XJ2dIWIMGEHkrZ6gE0HGKvyd/4MKcyQ04oEfE=").
-		WithAddress("https://open-api.test.junyouchain.com")
+		WithAccessId("f6262a470f329acfa688ef77ccf9c24d").
+		WithAccessKey("69klpXN0+k2ZC7JdIyUJ+G/SMbQ/krUFu1tj2Mz2Mjs=").
+		WithAddress("http://127.0.0.1")
 
 	client, err := junyousdk.NewClient(config)
 	if err != nil {
@@ -28,13 +29,13 @@ func main() {
 	// 示例3: 释放权证
 	// ewtExample(client)
 
-	// 示例5: 预提交权证释放（伙伴）
-	// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_commit
-	ewtPreReleaseExample(client)
+	// 示例5: 权证合伙人释放（预提交 + 提交，与 GOC 示例同一套路）
+	// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open 、 POST /api/open/v1/ewt/commit_ewt_rbp
+	// ewtReleaseByPartnerExample(client)
 
-	// 示例6: 提交权证释放（伙伴）
-	// 对应接口: POST /api/open/v1/ewt/commit_ewt_rbp
-	// ewtCommitReleaseExample(client)
+	// 示例5b: GOC 预提交 + 提交（PreRewardGOC → json.Marshal(Data) → 签名 → RewardGOC）
+	// 对应接口: POST /api/open/v1/goc/pre_reward 、 POST /api/open/v1/goc/reward
+	gocRewardExample(client)
 
 	// 示例7: 权证余额查询
 	// 对应接口: GET /api/open/v1/ewt/balance
@@ -108,13 +109,13 @@ func ewtExample(client *junyousdk.Client) {
 	fmt.Println("释放权证成功")
 }
 
-// ewtPreReleaseExample 预提交权证释放示例
-// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open
-// 预提交需要“用户身份”：先为该用户换取 Open Token，再在请求头中携带 X-Open-Auth，否则服务端会返回「校验失败：缺少用户身份」。
-func ewtPreReleaseExample(client *junyousdk.Client) {
-	fmt.Println("\n=== 预提交权证释放示例 ===")
+// ewtReleaseByPartnerExample 权证合伙人释放：AuthLogin → 预提交 → 取待签名对象 → 提交
+// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open 、 POST /api/open/v1/ewt/commit_ewt_rbp
+// 预提交须带 X-Open-Auth（先 AuthLogin）。message = string(json.Marshal(preResult.Data))，与 GOC 示例一致。
+// TODO: public_key、der_hex 请换为密盾对 message 的真实签名结果。
+func ewtReleaseByPartnerExample(client *junyousdk.Client) {
+	fmt.Println("\n=== 权证合伙人释放：预提交 + 提交示例 ===")
 
-	// 1. 为“接收权证释放”的用户换取 Open Token（示例用 openId，实际由业务侧提供）
 	openId := "04a7bb30587780d34fd7916664b13651ee4a05dc8079c34a69e9cea2cc59faf7"
 	loginResult, err := client.API().AuthLogin(junyousdk.OpenIdToken{OpenId: openId})
 	if err != nil {
@@ -127,7 +128,6 @@ func ewtPreReleaseExample(client *junyousdk.Client) {
 	}
 	openAuth := loginResult.Data
 
-	// 2. 带 X-Open-Auth 调用预提交
 	preReq := junyousdk.PreEWTReleaseByPartnerRequest{
 		Amount:       "100",
 		Ratio:        "1",
@@ -146,18 +146,20 @@ func ewtPreReleaseExample(client *junyousdk.Client) {
 		log.Printf("预提交权证释放失败: %s\n", preResult.Message)
 		return
 	}
-
 	fmt.Printf("预提交成功，返回数据: %#v\n", preResult.Data)
-}
 
-// ewtCommitReleaseExample 提交权证释放示例
-// 对应接口: POST /api/open/v1/ewt/commit_ewt_rbp
-func ewtCommitReleaseExample(client *junyousdk.Client) {
-	fmt.Println("\n=== 提交权证释放示例 ===")
+	msgBytes, err := json.Marshal(preResult.Data)
+	if err != nil {
+		log.Printf("序列化 message 失败: %v\n", err)
+		return
+	}
+	message := string(msgBytes)
 
-	// TODO: 这里的 biz_no / message / 公钥 / 签名 等字段，请根据你业务系统真实数据填充
-	bizNo := "EWT20250101000001"
-	message := `{"from":"0x1234567890abcdef1234567890abcdef12345678","to":"0xabcdef1234567890abcdef1234567890abcdef12","amount":"100","ratio":"0.5","biz_no":"EWT20250101000001","ent_id":123,"biz_type":"EWT1005","biz_desc":"合伙人权证释放"}`
+	bizNo, _ := preResult.Data["biz_no"].(string)
+	if bizNo == "" {
+		log.Printf("预提交 data 缺少 biz_no\n")
+		return
+	}
 
 	commitReq := junyousdk.CommitEWTReleaseByPartnerRequest{
 		BizNo:     bizNo,
@@ -224,4 +226,60 @@ func ewtTransactionDetailsExample(client *junyousdk.Client) {
 	}
 
 	fmt.Printf("权证交易明细查询结果: %#v\n", result.Data)
+}
+
+// gocRewardExample GOC：预提交 → message=string(json.Marshal(preResult.Data)) → 签名 → 提交
+// 对应接口: POST /api/open/v1/goc/pre_reward 、 POST /api/open/v1/goc/reward
+// TODO: public_key、der_hex 请换为密盾对 message 的真实签名结果。
+func gocRewardExample(client *junyousdk.Client) {
+	fmt.Println("\n=== GOC 预提交 + 提交示例 ===")
+
+	preReq := junyousdk.PreGOCRewardRequest{
+		OpenId: "8d007704b1954336e0928c465745c1e87782f5390c1ec784722e63eadf6af6bf",
+		Amount: "1.00",
+	}
+
+	preResult, err := client.API().PreRewardGOC(preReq)
+	if err != nil {
+		log.Printf("GOC 预提交失败: %v\n", err)
+		return
+	}
+	if !preResult.Success {
+		log.Printf("GOC 预提交失败: %s\n", preResult.Message)
+		return
+	}
+	fmt.Printf("预提交成功，返回数据: %#v\n", preResult.Data)
+
+	msgBytes, err := json.Marshal(preResult.Data)
+	if err != nil {
+		log.Printf("序列化 message 失败: %v\n", err)
+		return
+	}
+	message := string(msgBytes)
+	fmt.Println("message", message)
+
+	bizNo, _ := preResult.Data["biz_no"].(string)
+	if bizNo == "" {
+		log.Printf("预提交 data 缺少 biz_no\n")
+		return
+	}
+
+	commitReq := junyousdk.CommitGOCRewardRequest{
+		BizNo:     "20260323134001989317",
+		Message:   `{"amount":"1.00","biz_desc":"GOC奖励","biz_no":"20260323134001989317","biz_type":"1002","from":"RnSFU7fC7gNSBJtnUrKo7f1yBmhAm9hqh","to":"Wv8Tpva2QjtH3LzYweUvDDBorTV47VjSu"}`,
+		PublicKey: `{"Curvname":"P-256","X":"N7H1oyS-4s-ZbsoS4orISoDDYP-QGXlUCDEU0jeicOM","Y":"-bxc-QAmzoWoDF8AJambw77IL9mB9iKHgdX2kT0sVL0"}`,
+		DerHex:    "304502206256c1bb7fd9f4ec17a4dc6150e955eda450b1e1bbd3610ebc2e0b73cdc2348d022100f1633e11aa3bfe580fec901e312e827a60828e31015e289e8f1a58f562241d50",
+	}
+
+	commitResult, err := client.API().RewardGOC(commitReq)
+	if err != nil {
+		log.Printf("GOC 提交失败: %v\n", err)
+		return
+	}
+	if !commitResult.Success {
+		log.Printf("GOC 提交失败: %s\n", commitResult.Message)
+		return
+	}
+
+	fmt.Printf("GOC 提交成功，返回数据: %#v\n", commitResult)
 }

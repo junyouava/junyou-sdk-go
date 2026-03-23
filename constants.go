@@ -17,6 +17,10 @@ const (
 	APIPathEWTBalance                 = "/api/open/v1/ewt/balance"
 	APIPathEWTTransactionDetails      = "/api/open/v1/ewt/transaction_details"
 
+	// GOC 企业奖励（预提交 → 签名 → 提交上链）
+	APIPathGOCPreReward = "/api/open/v1/goc/pre_reward"
+	APIPathGOCReward    = "/api/open/v1/goc/reward"
+
 	// 企业相关
 	APIPathEnterpriseJKSURL = "/api/open/v1/enterprise/jks_url"
 )

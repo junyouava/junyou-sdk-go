@@ -6,6 +6,7 @@
 - 📝 **用户注册**：提供用户注册接口，支持手机号注册
 - 🔑 **多种认证方式**：支持登录认证、设置密码认证、验证认证等多种令牌获取方式
 - 🎫 **权证（EWT）**：确认释放、预提交/提交合伙人释放、余额与交易明细查询；支持可选用户身份（`X-Open-Auth`）
+- 💰 **企业 GOC 奖励**：预提交 `pre_reward` + 提交 `reward`（预提交 → 本地签名 → 上链）
 - ⚙️ **灵活配置**：支持自定义配置，包括 API 地址、版本、内容类型等
 - 🔧 **自定义 HTTP 客户端**：支持使用自定义 HTTP 客户端，方便集成到现有项目
 - 📦 **类型安全**：使用 Go 泛型，提供类型安全的 API 响应处理
@@ -245,6 +246,33 @@ result, err = client.API().GetEWTTransactionDetails(
 )
 ```
 
+### 企业 GOC 奖励发放
+
+与 `pre_pay` + `pay` 类似：**预提交**拿到 `biz_no` 与链上消息 → **密盾/本地对 `message` 签名** → **`RewardGOC` 提交**上链。企业须在开放平台开通 **GOC** 服务权限。
+
+预提交返回的 `data` **就是**提交时的业务消息体；提交参数 `message` 填 **`string(json.Marshal(pre.Data))`**（本地签名也是对该字符串）。`biz_no` 等在 `pre.Data` 里与 EWT 一样按需读取。
+
+```go
+// import "encoding/json"
+pre, err := client.API().PreRewardGOC(junyousdk.PreGOCRewardRequest{
+    OpenId: "接收方-open-id",
+    Amount: "1.00",
+})
+if err != nil || !pre.Success {
+    return
+}
+b, _ := json.Marshal(pre.Data)
+messageToSign := string(b)
+
+pubKey, derHex := /* KMS 对 messageToSign 签名 */
+commit, err := client.API().RewardGOC(junyousdk.CommitGOCRewardRequest{
+    BizNo:     pre.Data.BizNo,
+    Message:   messageToSign,
+    PublicKey: pubKey,
+    DerHex:    derHex,
+})
+```
+
 ### 企业 JKS 访问链接上报
 
 ```go
@@ -323,6 +351,8 @@ API 服务，提供所有业务 API 调用。
 | `CommitEWTReleaseByPartner(req CommitEWTReleaseByPartnerRequest) (*Result[map[string]any], error)` | 提交合伙人释放 |
 | `GetEWTBalance(page, pageSize int, openAuth string) (*Result[map[string]any], error)` | 权证余额；`openAuth==""` 企业维度，否则用户维度 |
 | `GetEWTTransactionDetails(page, pageSize int, transactionType, bizType string, year, month int, openAuth string) (*Result[map[string]any], error)` | 权证交易明细；`openAuth` 语义同余额 |
+| `PreRewardGOC(req PreGOCRewardRequest) (*Result[map[string]any], error)` | GOC 预提交，`POST .../goc/pre_reward` |
+| `RewardGOC(req CommitGOCRewardRequest) (*Result[map[string]any], error)` | GOC 提交上链，`POST .../goc/reward` |
 
 ## 配置选项
 
