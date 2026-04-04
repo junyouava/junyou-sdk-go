@@ -6,7 +6,7 @@
 - 📝 **用户注册**：提供用户注册接口，支持手机号注册
 - 🔑 **多种认证方式**：支持登录认证、设置密码认证、验证认证等多种令牌获取方式
 - 🎫 **权证（EWT）**：确认释放、预提交/提交合伙人释放、余额与交易明细查询；支持可选用户身份（`X-Open-Auth`）
-- 💰 **企业 GOC 奖励**：预提交 `pre_reward` + 提交 `reward`（预提交 → 本地签名 → 上链）
+- 💰 **企业 GOC 奖励**：`pre_reward` 仅 body `amount`，须带 `X-Open-Auth`（宜每轮预提交重新 `AuthLogin` 换新 Token）；`reward` 通常不带 `X-Open-Auth`，用预提交的 `biz_no`，且 `message` 须为预提交 `data` 的同一 JSON 字符串并对其做链上签名后提交
 - ⚙️ **灵活配置**：支持自定义配置，包括 API 地址、版本、内容类型等
 - 🔧 **自定义 HTTP 客户端**：支持使用自定义 HTTP 客户端，方便集成到现有项目
 - 📦 **类型安全**：使用 Go 泛型，提供类型安全的 API 响应处理
@@ -97,7 +97,7 @@ fmt.Printf("注册成功: %s\n", result.Data)
 
 ### 获取登录令牌（Open Token / openAuth）
 
-调用 `POST /api/open/v1/auth/login`，用用户的 `open_id` 换取 **Open Token**。成功时 **`result.Data` 即为后续 EWT 等接口中的 `openAuth`**：SDK 会将其放在请求头 **`X-Open-Auth`**（常量 `junyousdk.HeaderOpenAuth`）上。
+调用 `POST /api/open/v1/auth/login`，用用户的 `open_id` 换取 **Open Token**。成功时 **`result.Data` 即 `openAuth`**，用于须带用户身份的接口（如 **`PreCommitEWTReleaseByPartner`、`PreRewardGOC`**、按用户维度的权证查询等）：SDK 将其置于请求头 **`X-Open-Auth`**（`junyousdk.HeaderOpenAuth`）。
 
 ```go
 openIdToken := junyousdk.OpenIdToken{
@@ -115,7 +115,7 @@ if !result.Success {
     return
 }
 
-openAuth := result.Data // 传给 GetEWTBalance、GetEWTTransactionDetails、PreCommitEWTReleaseByPartner 等
+openAuth := result.Data // 传给 PreRewardGOC、PreCommitEWTReleaseByPartner、GetEWTBalance（用户维度）等
 fmt.Printf("Open Token: %s\n", openAuth)
 ```
 
@@ -241,7 +241,7 @@ result, err := client.API().GetEWTTransactionDetails(
 )
 
 result, err = client.API().GetEWTTransactionDetails(
-    1, 10, "in", "EWT1005", 2025, 3,
+    1, 10, "in", "EWT1005", 2026, 3,
     openAuth, // 用户维度
 )
 ```
@@ -250,23 +250,34 @@ result, err = client.API().GetEWTTransactionDetails(
 
 与 `pre_pay` + `pay` 类似：**预提交**拿到 `biz_no` 与链上消息 → **密盾/本地对 `message` 签名** → **`RewardGOC` 提交**上链。企业须在开放平台开通 **GOC** 服务权限。
 
-预提交返回的 `data` **就是**提交时的业务消息体；提交参数 `message` 填 **`string(json.Marshal(pre.Data))`**（本地签名也是对该字符串）。`biz_no` 等在 `pre.Data` 里与 EWT 一样按需读取。
+- **预提交** `POST .../goc/pre_reward`：请求体仅 `amount`；**`X-Open-Auth` 必填**，且服务端通常要求**每次预提交使用新 Token**（对收款方 `open_id` 重新 `AuthLogin`）。成功 `data` 含 `from`（企业出账链上地址）、`to`（Token 用户链上地址）、`amount`、`biz_no`、`biz_type`、`biz_desc` 等。
+- **提交** `POST .../goc/reward`：**可不携带** `X-Open-Auth`；请求体为 `biz_no`、`message`（字符串形式的上述业务 JSON，须与预提交一致）、`public_key`、`der_hex`（无需 `pay_password`）。
+
+预提交返回的 **`pre.Data` 类型为 `map[string]any`**，字段用 `pre.Data["biz_no"]` 等读取（无 `pre.Data.BizNo` 这类字段访问）。
+
+`message` 为 **`string(json.Marshal(pre.Data))`**，与预提交 JSON 一致；**对该字符串**做密盾/本地签名后填入 `DerHex` 等。
 
 ```go
 // import "encoding/json"
+login, err := client.API().AuthLogin(junyousdk.OpenIdToken{OpenId: "接收方-open-id"})
+if err != nil || !login.Success {
+    return
+}
+openAuth := login.Data
+
 pre, err := client.API().PreRewardGOC(junyousdk.PreGOCRewardRequest{
-    OpenId: "接收方-open-id",
     Amount: "1.00",
-})
+}, openAuth)
 if err != nil || !pre.Success {
     return
 }
 b, _ := json.Marshal(pre.Data)
 messageToSign := string(b)
+bizNo, _ := pre.Data["biz_no"].(string)
 
 pubKey, derHex := /* KMS 对 messageToSign 签名 */
 commit, err := client.API().RewardGOC(junyousdk.CommitGOCRewardRequest{
-    BizNo:     pre.Data.BizNo,
+    BizNo:     bizNo,
     Message:   messageToSign,
     PublicKey: pubKey,
     DerHex:    derHex,
@@ -351,8 +362,8 @@ API 服务，提供所有业务 API 调用。
 | `CommitEWTReleaseByPartner(req CommitEWTReleaseByPartnerRequest) (*Result[map[string]any], error)` | 提交合伙人释放 |
 | `GetEWTBalance(page, pageSize int, openAuth string) (*Result[map[string]any], error)` | 权证余额；`openAuth==""` 企业维度，否则用户维度 |
 | `GetEWTTransactionDetails(page, pageSize int, transactionType, bizType string, year, month int, openAuth string) (*Result[map[string]any], error)` | 权证交易明细；`openAuth` 语义同余额 |
-| `PreRewardGOC(req PreGOCRewardRequest) (*Result[map[string]any], error)` | GOC 预提交，`POST .../goc/pre_reward` |
-| `RewardGOC(req CommitGOCRewardRequest) (*Result[map[string]any], error)` | GOC 提交上链，`POST .../goc/reward` |
+| `PreRewardGOC(req PreGOCRewardRequest, openAuth string) (*Result[map[string]any], error)` | GOC 预提交；`openAuth` 必填，每次预提交宜重新 `AuthLogin` 换新 Token |
+| `RewardGOC(req CommitGOCRewardRequest) (*Result[map[string]any], error)` | GOC 提交上链；请求不设置 `X-Open-Auth` |
 
 ## 配置选项
 

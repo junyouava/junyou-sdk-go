@@ -33,7 +33,7 @@ func main() {
 	// 对应接口: POST /api/open/v1/ewt/pre_ewt_rbp_open 、 POST /api/open/v1/ewt/commit_ewt_rbp
 	// ewtReleaseByPartnerExample(client)
 
-	// 示例5b: GOC 预提交 + 提交（PreRewardGOC → json.Marshal(Data) → 签名 → RewardGOC）
+	// 示例5b: GOC 预提交 + 提交（AuthLogin → PreRewardGOC+openAuth → json.Marshal(Data) → 签名 → RewardGOC）
 	// 对应接口: POST /api/open/v1/goc/pre_reward 、 POST /api/open/v1/goc/reward
 	gocRewardExample(client)
 
@@ -228,18 +228,29 @@ func ewtTransactionDetailsExample(client *junyousdk.Client) {
 	fmt.Printf("权证交易明细查询结果: %#v\n", result.Data)
 }
 
-// gocRewardExample GOC：预提交 → message=string(json.Marshal(preResult.Data)) → 签名 → 提交
+// gocRewardExample GOC：AuthLogin(收款方 open_id) → 预提交（body 仅 amount + 必填 X-Open-Auth；每次预提交须新 Token）→ 签名 → 提交（reward 可不带头）
 // 对应接口: POST /api/open/v1/goc/pre_reward 、 POST /api/open/v1/goc/reward
 // TODO: public_key、der_hex 请换为密盾对 message 的真实签名结果。
 func gocRewardExample(client *junyousdk.Client) {
 	fmt.Println("\n=== GOC 预提交 + 提交示例 ===")
 
+	openId := "8d007704b1954336e0928c465745c1e87782f5390c1ec784722e63eadf6af6bf"
+	loginResult, err := client.API().AuthLogin(junyousdk.OpenIdToken{OpenId: openId})
+	if err != nil {
+		log.Printf("获取 Open Token 失败: %v\n", err)
+		return
+	}
+	if !loginResult.Success {
+		log.Printf("获取 Open Token 失败: %s\n", loginResult.Message)
+		return
+	}
+	openAuth := loginResult.Data
+
 	preReq := junyousdk.PreGOCRewardRequest{
-		OpenId: "8d007704b1954336e0928c465745c1e87782f5390c1ec784722e63eadf6af6bf",
 		Amount: "1.00",
 	}
 
-	preResult, err := client.API().PreRewardGOC(preReq)
+	preResult, err := client.API().PreRewardGOC(preReq, openAuth)
 	if err != nil {
 		log.Printf("GOC 预提交失败: %v\n", err)
 		return
@@ -265,8 +276,8 @@ func gocRewardExample(client *junyousdk.Client) {
 	}
 
 	commitReq := junyousdk.CommitGOCRewardRequest{
-		BizNo:     "20260323134001989317",
-		Message:   `{"amount":"1.00","biz_desc":"GOC奖励","biz_no":"20260323134001989317","biz_type":"1002","from":"RnSFU7fC7gNSBJtnUrKo7f1yBmhAm9hqh","to":"Wv8Tpva2QjtH3LzYweUvDDBorTV47VjSu"}`,
+		BizNo:     bizNo,
+		Message:   message,
 		PublicKey: `{"Curvname":"P-256","X":"N7H1oyS-4s-ZbsoS4orISoDDYP-QGXlUCDEU0jeicOM","Y":"-bxc-QAmzoWoDF8AJambw77IL9mB9iKHgdX2kT0sVL0"}`,
 		DerHex:    "304502206256c1bb7fd9f4ec17a4dc6150e955eda450b1e1bbd3610ebc2e0b73cdc2348d022100f1633e11aa3bfe580fec901e312e827a60828e31015e289e8f1a58f562241d50",
 	}
