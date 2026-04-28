@@ -20,6 +20,13 @@ const (
 	// GOC 企业奖励（预提交 → 签名 → 提交上链）
 	APIPathGOCPreReward = "/api/open/v1/goc/pre_reward"
 	APIPathGOCReward    = "/api/open/v1/goc/reward"
+	// GOC 企业退款（预申请 → 签名 → 上链；须 GOC ESACL）
+	APIPathGOCPreRefund = "/api/open/v1/goc/pre_refund"
+	APIPathGOCRefund    = "/api/open/v1/goc/refund"
+
+	// EWT 企业退款（预申请 → 签名 → 上链；须权证 ESACL）
+	APIPathEWTPreRefund = "/api/open/v1/ewt/pre_refund"
+	APIPathEWTRefund    = "/api/open/v1/ewt/refund"
 
 	// 企业相关
 	APIPathEnterpriseJKSURL = "/api/open/v1/enterprise/jks_url"
